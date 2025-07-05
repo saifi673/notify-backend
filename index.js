@@ -21,7 +21,7 @@ app.get('/send-inactive-notifications', async (req, res) => {
   try {
     const db = admin.firestore();
     const now = Date.now();
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 5 * 60 * 1000;
 
     const snapshot = await db.collection('users').get();
     const inactiveUsers = [];
