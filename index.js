@@ -1,18 +1,24 @@
+import express from 'express';
 import admin from 'firebase-admin';
 
-// Read service account JSON from environment variable
 const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-const db = admin.firestore();
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-async function sendNotificationsToInactiveUsers() {
+app.get('/', (req, res) => {
+  res.send('✅ Notification server is running!');
+});
+
+app.get('/send-inactive-notifications', async (req, res) => {
   try {
+    const db = admin.firestore();
     const now = Date.now();
-    const fiveMinutesAgo = now - 10 * 60 * 1000;
+    const tenMinutesAgo = now - 10 * 60 * 1000;
 
     const snapshot = await db.collection('users').get();
     let count = 0;
@@ -22,32 +28,25 @@ async function sendNotificationsToInactiveUsers() {
       const lastActive = data.lastActive?.toMillis?.() || 0;
       const fcmToken = data.fcmToken;
 
-      if (lastActive < fiveMinutesAgo && fcmToken) {
-        try {
-          await admin.messaging().send({
-            token: fcmToken,
-            notification: {
-              title: 'We Miss You!',
-              body: 'It’s been a while. Come back and continue your journey!',
-            },
-          });
-          count++;
-        } catch (sendError) {
-          // Log and ignore failed sends
-        }
+      if (lastActive < tenMinutesAgo && fcmToken) {
+        await admin.messaging().send({
+          token: fcmToken,
+          notification: {
+            title: 'We Miss You!',
+            body: 'It’s been a while. Come back and continue your journey!',
+          },
+        });
+        count++;
       }
     }
 
-    console.log(`✅ Notifications sent to ${count} inactive users`);
+    res.send(`✅ Notifications sent to ${count} inactive users`);
   } catch (error) {
-    console.error('❌ Error sending notifications:', error);
+    console.error('❌ Error:', error);
+    res.status(500).send('Failed to send notifications');
   }
-}
+});
 
-// Run every 5 minutes
-setInterval(sendNotificationsToInactiveUsers, 5 * 60 * 1000);
-
-// Optional: run once at startup too
-sendNotificationsToInactiveUsers();
-
-console.log('⏱️ Background worker started...');
+app.listen(PORT, () => {
+  console.log(`🚀 Server started on port ${PORT}`);
+});
