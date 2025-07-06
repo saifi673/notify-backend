@@ -12,7 +12,7 @@ const db = admin.firestore();
 async function sendNotificationsToInactiveUsers() {
   try {
     const now = Date.now();
-    const fiveMinutesAgo = now - 5 * 60 * 1000;
+    const fiveMinutesAgo = now - 10 * 60 * 1000;
 
     const snapshot = await db.collection('users').get();
     let count = 0;
