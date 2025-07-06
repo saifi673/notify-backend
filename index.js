@@ -21,31 +21,35 @@ app.get('/send-inactive-notifications', async (req, res) => {
   try {
     const db = admin.firestore();
     const now = Date.now();
-    const sevenDaysAgo = now - 5 * 60 * 1000;
+    const fiveMinutesAgo = now - 5 * 60 * 1000;
 
     const snapshot = await db.collection('users').get();
-    const inactiveUsers = [];
+    let count = 0;
 
     for (const doc of snapshot.docs) {
       const data = doc.data();
       const lastActive = data.lastActive?.toMillis?.() || 0;
       const fcmToken = data.fcmToken;
 
-      if (lastActive < sevenDaysAgo && fcmToken) {
-        await admin.messaging().send({
-          token: fcmToken,
-          notification: {
-            title: 'We Miss You!',
-            body: 'It’s been a while. Come back and continue your journey!',
-          },
-        });
-        inactiveUsers.push(doc.id);
+      if (lastActive < fiveMinutesAgo && fcmToken) {
+        try {
+          await admin.messaging().send({
+            token: fcmToken,
+            notification: {
+              title: 'We Miss You!',
+              body: 'It’s been a while. Come back and continue your journey!',
+            },
+          });
+          count++;
+        } catch (sendError) {
+          // Optionally log this or ignore it silently
+        }
       }
     }
 
-    res.send(`✅ Notifications sent to ${inactiveUsers.length} inactive users`);
+    res.send(`✅ Notifications sent to ${count} inactive users`);
   } catch (error) {
-    console.error('❌ Error sending notifications:', error);
+    console.error('❌ Error sending notifications');
     res.status(500).send('Failed to send notifications');
   }
 });
