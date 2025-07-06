@@ -1,4 +1,3 @@
-import express from 'express';
 import admin from 'firebase-admin';
 
 // Read service account JSON from environment variable
@@ -8,18 +7,10 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const db = admin.firestore();
 
-// Health check route
-app.get('/', (req, res) => {
-  res.send('✅ Notification server is running!');
-});
-
-// Inactive user check route
-app.get('/send-inactive-notifications', async (req, res) => {
+async function sendNotificationsToInactiveUsers() {
   try {
-    const db = admin.firestore();
     const now = Date.now();
     const fiveMinutesAgo = now - 5 * 60 * 1000;
 
@@ -42,18 +33,21 @@ app.get('/send-inactive-notifications', async (req, res) => {
           });
           count++;
         } catch (sendError) {
-          // Optionally log this or ignore it silently
+          // Log and ignore failed sends
         }
       }
     }
 
-    res.send(`✅ Notifications sent to ${count} inactive users`);
+    console.log(`✅ Notifications sent to ${count} inactive users`);
   } catch (error) {
-    console.error('❌ Error sending notifications');
-    res.status(500).send('Failed to send notifications');
+    console.error('❌ Error sending notifications:', error);
   }
-});
+}
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server started on port ${PORT}`);
-});
+// Run every 5 minutes
+setInterval(sendNotificationsToInactiveUsers, 5 * 60 * 1000);
+
+// Optional: run once at startup too
+sendNotificationsToInactiveUsers();
+
+console.log('⏱️ Background worker started...');
